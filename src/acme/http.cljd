@@ -34,6 +34,7 @@
    (fn [_ [_ response]]
      {:fx [[:dispatch [:acme.session/update-ssid (response->ssid response)]]
            ;; doesn't work: the result of update-ssid is reverted from app-db
+           ;; works only if you remove the [persist] interceptor from update-ssid
            ;; [:dispatch [::update-server (response->server response)]]
            ;; works
            [:dispatch [::indirect-update-server response]]
