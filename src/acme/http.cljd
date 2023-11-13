@@ -1,0 +1,53 @@
+(ns acme.http
+  (:require ["package:http/http.dart" :as http :refer [Response]]
+            [hti.re-dash :as rd]))
+
+(def host
+  "https://github.com")
+
+(def base-headers
+  {"User-Agent" "acme.http/0.0.1"})
+
+(defn response->ssid
+  [^Response response]
+  (let [cookies (get (.-headers response) "set-cookie" "")]
+    (last (re-find #"_gh_sess=([^;]+);" cookies))))
+
+(defn response->server
+  [^Response response]
+  (get (.-headers response) "server" ""))
+
+(defn setup!
+  []
+  (rd/reg-event-db
+   ::update-server
+   (fn [db [_ server]]
+     ;; irl more complicated logic
+     (assoc db ::server server)))
+  
+  (rd/reg-sub
+   ::server
+   :-> ::server)
+  
+  (rd/reg-event-fx
+   ::handle-success
+   (fn [_ [_ response]]
+     {:fx [[:dispatch [:acme.session/update-ssid (response->ssid response)]]
+           ;; doesn't work: the result of update-ssid is reverted from app-db
+           ;; [:dispatch [::update-server (response->server response)]]
+           ;; works
+           [:dispatch [::indirect-update-server response]]
+           ]})) 
+  
+  (rd/reg-event-fx
+   ::indirect-update-server
+   (fn [_ [_ response]]
+     {:fx [[:dispatch [::update-server (response->server response)]]]}))
+
+  (rd/reg-fx
+   ::get
+   (fn [{:keys [path]}]
+     (-> (http/get
+          (.parse Uri (str host path))
+          .headers base-headers)
+         (.then #(rd/dispatch [::handle-success %]))))))

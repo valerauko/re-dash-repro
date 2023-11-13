@@ -1,0 +1,45 @@
+(ns acme.main
+  (:require ["package:flutter/widgets.dart" :refer [WidgetsFlutterBinding]]
+            ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [hti.re-dash :as rd]
+            [acme.http :as http]
+            [acme.persistence :as persistence]
+            [acme.session :as session]))
+
+(defn main
+  []
+  (.ensureInitialized WidgetsFlutterBinding)
+  
+  (await (persistence/init!))
+  (http/setup!)
+  (session/setup!)
+
+  (rd/reg-event-fx
+   ::get-root
+   (fn [_ _]
+     {::http/get {:path "/"}}))
+  
+  (f/run
+   (f/widget
+    (m/MaterialApp
+     .title "Acme")
+    .home
+    (m/Scaffold
+     .floatingActionButton
+     (m/FloatingActionButton
+      .onPressed
+      (fn button-press-handler []
+        (rd/dispatch [::get-root]))))
+    .body
+    (m/Column
+     .mainAxisAlignment m/MainAxisAlignment.center
+     .children
+     [(f/widget
+       :watch [ssid (rd/subscribe [::session/id])]
+       (m/Text
+        (str "Current session ID: " (or ssid "(empty)"))))
+      (f/widget
+       :watch [server (rd/subscribe [::http/server])]
+       (m/Text
+        (str "HTTP server: " (or server "(unknown)"))))]))))

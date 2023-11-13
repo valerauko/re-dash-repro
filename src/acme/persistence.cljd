@@ -1,0 +1,24 @@
+(ns acme.persistence
+  (:require ["package:shared_preferences/shared_preferences.dart"
+             :refer [SharedPreferences]]))
+
+(defonce instance
+  (atom nil))
+
+(defn init!
+  []
+  (when-not @instance
+    (reset! instance (await (.getInstance SharedPreferences)))))
+
+(defn load!
+  [k]
+  (dart:core/print (str "Loading `" k "` from SharedPreferences"))
+  (.getString ^SharedPreferences @instance (str k)))
+
+(defn persist!
+  [k v]
+  (dart:core/print (str "Writing `" k "` = `" v "` to SharedPreferences"))
+  (let [prefs ^SharedPreferences @instance]
+    (if v
+      (.setString prefs (str k) v)
+      (.remove prefs (str k)))))

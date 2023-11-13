@@ -1,0 +1,42 @@
+(ns acme.session
+  (:require [hti.re-dash :as rd]
+            [acme.persistence :refer [load! persist!]]))
+
+(def persist
+  (rd/->interceptor
+   ::persist
+   ;; before
+   nil
+   ;; after
+   (fn [{{{::keys [id]} :db} :effects :as data}]
+     (persist! "session" id)
+     data)))
+
+(defn persisted
+  [cofx _]
+  (let [id (load! "session")]
+    (assoc cofx ::id id)))
+
+(defn setup!
+  []
+  (rd/reg-cofx
+   ::persisted
+   persisted)
+  
+  (rd/reg-event-fx
+   ::load
+   [(rd/inject-cofx ::persisted)]
+   (fn [{db :db id ::id} _]
+     {:db (assoc db ::id id)}))
+  
+  (rd/reg-event-db
+   ::update-ssid
+   [persist]
+   (fn [db [_ ssid]]
+     (assoc db ::id ssid)))
+  
+  (rd/reg-sub
+   ::id
+   :-> ::id)
+  
+  (rd/dispatch [::load]))
